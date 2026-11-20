@@ -727,6 +727,17 @@ public class FurnitureTable extends JTable implements View, Printable {
    * Prints this component to make it fill <code>pageFormat</code> imageable size.
    */
   public int print(Graphics g, PageFormat pageFormat, int pageIndex) throws PrinterException {
+    return print(g, pageFormat, pageIndex, false);
+  }
+
+  /**
+   * Prints this component to make it fill <code>pageFormat</code> imageable size.
+   * If <code>levelColumnPrinted</code> is <code>true</code> and the level column isn't displayed in this table,
+   * a level column is added at the end of the printed table.
+   * The columns displayed in this table aren't modified.
+   */
+  public int print(Graphics g, PageFormat pageFormat, int pageIndex,
+                   boolean levelColumnPrinted) throws PrinterException {
     // Create a printable column model from the column model of this table 
     // with printable renderers for each column
     DefaultTableColumnModel printableColumnModel = new DefaultTableColumnModel();
@@ -750,8 +761,21 @@ public class FurnitureTable extends JTable implements View, Printable {
           return headerRendererLabel;
         }
       };
+    List<TableColumn> printedColumns = new ArrayList<TableColumn>();
+    boolean levelColumnDisplayed = false;
     for (int columnIndex = 0, n = columnModel.getColumnCount(); columnIndex < n; columnIndex++) {
-      final TableColumn tableColumn = columnModel.getColumn(columnIndex);
+      TableColumn tableColumn = columnModel.getColumn(columnIndex);
+      printedColumns.add(tableColumn);
+      levelColumnDisplayed |= tableColumn.getIdentifier() == HomePieceOfFurniture.SortableProperty.LEVEL;
+    }
+    if (levelColumnPrinted
+      && !levelColumnDisplayed
+      && columnModel instanceof FurnitureTableColumnModel) {
+      // Print level column even if it's not displayed, without changing displayed columns
+      printedColumns.add(((FurnitureTableColumnModel)columnModel).getAvailableColumn(
+        HomePieceOfFurniture.SortableProperty.LEVEL));
+    }
+    for (final TableColumn tableColumn : printedColumns) {
       // Create a printable column from existing table column
       TableColumn printableColumn = new TableColumn();
       printableColumn.setIdentifier(tableColumn.getIdentifier());
@@ -921,6 +945,9 @@ public class FurnitureTable extends JTable implements View, Printable {
           case HEIGHT : 
             writer.write(sizeFormat.format(copiedPiece.getHeight()));
             break;
+          case VOLUME :
+            writer.write(sizeFormat.format(copiedPiece.getVolume()));
+            break;
           case X : 
             writer.write(sizeFormat.format(copiedPiece.getX()));
             break;
@@ -1006,6 +1033,13 @@ public class FurnitureTable extends JTable implements View, Printable {
    */
   private static class FurnitureTableColumnModel extends DefaultTableColumnModel {
     private Map<HomePieceOfFurniture.SortableProperty, TableColumn> availableColumns;
+
+    /**
+     * Returns the column matching the given property, even if it isn't displayed.
+     */
+    public TableColumn getAvailableColumn(HomePieceOfFurniture.SortableProperty property) {
+      return this.availableColumns.get(property);
+    }
 
     public FurnitureTableColumnModel(Home home, UserPreferences preferences) {
       createAvailableColumns(home, preferences);
@@ -1130,6 +1164,8 @@ public class FurnitureTable extends JTable implements View, Printable {
           return preferences.getLocalizedString(FurnitureTable.class, "depthColumn");
         case HEIGHT : 
           return preferences.getLocalizedString(FurnitureTable.class, "heightColumn");
+        case VOLUME :
+          return preferences.getLocalizedString(FurnitureTable.class, "volumeColumn");
         case X : 
           return preferences.getLocalizedString(FurnitureTable.class, "xColumn");
         case Y :
@@ -1173,7 +1209,8 @@ public class FurnitureTable extends JTable implements View, Printable {
           return 120; 
         case WIDTH :
         case DEPTH :
-        case HEIGHT : 
+        case HEIGHT :
+        case VOLUME:
         case X : 
         case Y :
         case ELEVATION : 
@@ -1215,6 +1252,8 @@ public class FurnitureTable extends JTable implements View, Printable {
           return getSizeRenderer(HomePieceOfFurniture.SortableProperty.DEPTH, preferences);
         case HEIGHT : 
           return getSizeRenderer(HomePieceOfFurniture.SortableProperty.HEIGHT, preferences);
+        case VOLUME :
+          return getSizeRenderer(HomePieceOfFurniture.SortableProperty.VOLUME, preferences);
         case X : 
           return getSizeRenderer(HomePieceOfFurniture.SortableProperty.X, preferences);
         case Y :
@@ -1341,6 +1380,16 @@ public class FurnitureTable extends JTable implements View, Printable {
                     isSelected, hasFocus, row, column);
               }
             };
+        case VOLUME :
+          return new SizeRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table,
+                                                           Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+              return super.getTableCellRendererComponent(table,
+                value != null  ? ((HomePieceOfFurniture)value).getVolume()  : null,
+                isSelected, hasFocus, row, column);
+            }
+          };
         case X :
           return new SizeRenderer() {
               @Override
